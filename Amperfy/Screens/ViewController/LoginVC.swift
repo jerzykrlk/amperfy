@@ -22,6 +22,7 @@
 import AmperfyKit
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 extension String {
   var isHyperTextProtocolProvided: Bool {
@@ -168,6 +169,22 @@ class LoginVC: UIViewController {
     return button
   }()
 
+  fileprivate lazy var certificateLabel: UILabel = {
+    let label = UILabel()
+    label.text = "Certificate:"
+    label.font = .systemFont(ofSize: Self.fontSize)
+    label.textColor = .hardLabelColor
+    return label
+  }()
+
+  fileprivate lazy var certificateButton: UIButton = {
+    var config = UIButton.Configuration.glass()
+    let button = UIButton(configuration: config)
+    button.setTitle("None", for: .normal)
+    button.preferredBehavioralStyle = .pad
+    return button
+  }()
+
   fileprivate lazy var loginButton: UIButton = {
     var config = UIButton.Configuration.prominentGlass()
     config.image = .login
@@ -236,6 +253,8 @@ class LoginVC: UIViewController {
     apiLabel.translatesAutoresizingMaskIntoConstraints = false
     self.apiSelectorButton.translatesAutoresizingMaskIntoConstraints = false
     self.httpHeadersButton.translatesAutoresizingMaskIntoConstraints = false
+    certificateLabel.translatesAutoresizingMaskIntoConstraints = false
+    self.certificateButton.translatesAutoresizingMaskIntoConstraints = false
 
     let view = UIView()
     view.addSubview(serverUrlTF)
@@ -244,6 +263,8 @@ class LoginVC: UIViewController {
     view.addSubview(apiLabel)
     view.addSubview(apiSelectorButton)
     view.addSubview(httpHeadersButton)
+    view.addSubview(certificateLabel)
+    view.addSubview(certificateButton)
 
     let padding: CGFloat = 0
     let elementHeight: CGFloat = 40
@@ -326,8 +347,28 @@ class LoginVC: UIViewController {
       ),
       httpHeadersButton.heightAnchor.constraint(equalToConstant: elementHeight),
 
+      certificateLabel.safeAreaLayoutGuide.topAnchor.constraint(
+        equalTo: httpHeadersButton.bottomAnchor,
+        constant: spaceInBetween
+      ),
+      certificateLabel.safeAreaLayoutGuide.leadingAnchor.constraint(
+        equalTo: view.safeAreaLayoutGuide.leadingAnchor,
+        constant: padding
+      ),
+      certificateLabel.heightAnchor.constraint(equalToConstant: elementHeight),
+
+      certificateButton.safeAreaLayoutGuide.topAnchor.constraint(
+        equalTo: httpHeadersButton.bottomAnchor,
+        constant: spaceInBetween
+      ),
+      certificateButton.safeAreaLayoutGuide.trailingAnchor.constraint(
+        equalTo: view.safeAreaLayoutGuide.trailingAnchor,
+        constant: -padding
+      ),
+      certificateButton.heightAnchor.constraint(equalToConstant: elementHeight),
+
       view.heightAnchor
-        .constraint(equalToConstant: (5 * elementHeight) + (4 * spaceInBetween) + (2 * padding)),
+        .constraint(equalToConstant: (6 * elementHeight) + (5 * spaceInBetween) + (2 * padding)),
     ])
 
     return view
@@ -450,6 +491,13 @@ class LoginVC: UIViewController {
         self.appDelegate.storage.settings.accounts.login(credentials)
         meta.backendApi.provideCredentials(credentials: credentials)
 
+        if ClientCertificateManager.shared.hasIdentity(tag: ClientCertificateManager.loginTag) {
+          let accountTag = ClientCertificateManager.accountTag(for: accountInfo.ident)
+          try? ClientCertificateManager.shared.migrateIdentity(
+            from: ClientCertificateManager.loginTag, to: accountTag
+          )
+        }
+
         self.appDelegate.notificationHandler.post(name: .accountAdded, object: nil, userInfo: nil)
         self.appDelegate.notificationHandler.post(
           name: .accountActiveChanged,
@@ -470,8 +518,12 @@ class LoginVC: UIViewController {
             .replaceMainRootViewController(vc: syncVC)
         }
       } catch {
-        if error is AuthenticationError {
-          self.showErrorMsg(message: error.localizedDescription)
+        if let authError = error as? AuthenticationError {
+          self.showErrorMsg(message: authError.localizedDescription)
+        } else if let certError = error as? ClientCertificateError {
+          self.showErrorMsg(message: certError.localizedDescription)
+        } else if let certSessionError = error as? ClientCertificateSessionError {
+          self.showErrorMsg(message: certSessionError.localizedDescription)
         } else {
           self.showErrorMsg(message: "Not able to login!")
         }
@@ -509,6 +561,8 @@ class LoginVC: UIViewController {
         self.updateApiSelectorText()
       }),
     ])
+
+    updateCertificateMenu()
 
     view.backgroundColor = .systemBackground
 
@@ -636,5 +690,113 @@ class LoginVC: UIViewController {
 
   func updateApiSelectorText() {
     apiSelectorButton.setTitle("\(selectedApiType.selectorDescription)", for: .normal)
+  }
+
+  // MARK: - Certificate Management
+
+  private func updateCertificateMenu() {
+    let tag = ClientCertificateManager.loginTag
+    let hasCert = ClientCertificateManager.shared.hasIdentity(tag: tag)
+
+    var menuItems: [UIMenuElement] = []
+
+    if hasCert {
+      let info = ClientCertificateManager.shared.getCertificateInfo(tag: tag)
+      var title = info?.subjectName ?? "Certificate"
+      if let info {
+        if info.isExpired {
+          title += " (Expired)"
+          certificateButton.setTitleColor(.systemRed, for: .normal)
+        } else if info.isExpiringSoon {
+          if let days = info.daysUntilExpiry {
+            title += " (\(days)d)"
+          }
+          certificateButton.setTitleColor(.systemOrange, for: .normal)
+        } else {
+          certificateButton.setTitleColor(.tintColor, for: .normal)
+        }
+      }
+      certificateButton.setTitle(title, for: .normal)
+
+      menuItems.append(UIAction(title: "Remove Certificate", attributes: .destructive) { _ in
+        try? ClientCertificateManager.shared.removeIdentity(tag: tag)
+        self.updateCertificateMenu()
+      })
+    } else {
+      certificateButton.setTitle("None", for: .normal)
+      certificateButton.setTitleColor(.tintColor, for: .normal)
+    }
+
+    menuItems.append(UIAction(title: "Import from Files…") { _ in
+      self.presentCertificatePicker()
+    })
+
+    certificateButton.showsMenuAsPrimaryAction = true
+    certificateButton.menu = UIMenu(title: "Client Certificate", children: menuItems)
+  }
+
+  private func presentCertificatePicker() {
+    let types: [UTType] = [UTType(filenameExtension: "p12")!, UTType(filenameExtension: "pfx")!]
+    let picker = UIDocumentPickerViewController(forOpeningContentTypes: types)
+    picker.delegate = self
+    picker.allowsMultipleSelection = false
+    present(picker, animated: true)
+  }
+
+  private func promptForPassword(fileURL: URL) {
+    guard fileURL.startAccessingSecurityScopedResource() else {
+      showErrorMsg(message: "Unable to access the selected file.")
+      return
+    }
+    defer { fileURL.stopAccessingSecurityScopedResource() }
+
+    guard let data = try? Data(contentsOf: fileURL) else {
+      showErrorMsg(message: "Unable to read the certificate file.")
+      return
+    }
+
+    let alert = UIAlertController(
+      title: "Certificate Password",
+      message: "Enter the password for this certificate.",
+      preferredStyle: .alert
+    )
+    alert.addTextField { textField in
+      textField.isSecureTextEntry = true
+      textField.placeholder = "Password"
+    }
+    alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+    alert.addAction(UIAlertAction(title: "Import", style: .default) { _ in
+      let password = alert.textFields?.first?.text ?? ""
+      self.importCertificate(data: data, password: password)
+    })
+    present(alert, animated: true)
+  }
+
+  private func importCertificate(data: Data, password: String) {
+    do {
+      let (identity, _) = try ClientCertificateManager.shared.importPKCS12(
+        data: data, password: password
+      )
+      try ClientCertificateManager.shared.storeIdentity(
+        identity, tag: ClientCertificateManager.loginTag
+      )
+      updateCertificateMenu()
+    } catch let error as ClientCertificateError {
+      showErrorMsg(message: error.localizedDescription)
+    } catch {
+      showErrorMsg(message: "Failed to import certificate.")
+    }
+  }
+}
+
+// MARK: UIDocumentPickerDelegate
+
+extension LoginVC: UIDocumentPickerDelegate {
+  func documentPicker(
+    _ controller: UIDocumentPickerViewController,
+    didPickDocumentsAt urls: [URL]
+  ) {
+    guard let url = urls.first else { return }
+    promptForPassword(fileURL: url)
   }
 }
