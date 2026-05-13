@@ -30,6 +30,7 @@ public enum DownloadError: Error {
   case apiErrorResponse
   case canceled
   case fileManagerError
+  case authenticationExpired
 
   public var description: String {
     switch self {
@@ -41,6 +42,7 @@ public enum DownloadError: Error {
     case .apiErrorResponse: return "API Error"
     case .canceled: return "Cancled"
     case .fileManagerError: return "File Manager Error"
+    case .authenticationExpired: return "Authentication Expired"
     }
   }
 
@@ -54,6 +56,7 @@ public enum DownloadError: Error {
     case .apiErrorResponse: return 6
     case .canceled: return 7
     case .fileManagerError: return 8
+    case .authenticationExpired: return 9
     }
   }
 
@@ -67,6 +70,7 @@ public enum DownloadError: Error {
     case 6: return .apiErrorResponse
     case 7: return .canceled
     case 8: return .fileManagerError
+    case 9: return .authenticationExpired
     default:
       return nil
     }

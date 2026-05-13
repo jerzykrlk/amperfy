@@ -99,6 +99,11 @@ actor DownloadManager: NSObject, DownloadManageable {
   private var isFailWithPopupError: Bool = true
   private var preDownloadIsValidCheck: PreDownloadIsValidCB?
   private var isCacheSizeLimited: Bool
+  private let certTag: String?
+  private let serverURL: URL?
+  private var isReauthenticating = false
+  private var retriedAfterReauth = Set<NSManagedObjectID>()
+  private var pendingReauthRequests = [DownloadRequest]()
   @MainActor
   private var _urlSessionIdentifier: String?
 
@@ -113,7 +118,9 @@ actor DownloadManager: NSObject, DownloadManageable {
     notificationHandler: EventNotificationHandler,
     urlCleanser: URLCleanser,
     limitCacheSize: Bool,
-    isFailWithPopupError: Bool
+    isFailWithPopupError: Bool,
+    certTag: String? = nil,
+    serverURL: URL? = nil
   ) {
     self.name = name
     self.log = OSLog(subsystem: "Amperfy", category: name)
@@ -127,6 +134,8 @@ actor DownloadManager: NSObject, DownloadManageable {
     self.urlCleanser = urlCleanser
     self.isCacheSizeLimited = limitCacheSize
     self.isFailWithPopupError = isFailWithPopupError
+    self.certTag = certTag
+    self.serverURL = serverURL
     self.taskQueue = OperationQueue()
 
     super.init()
@@ -277,6 +286,9 @@ actor DownloadManager: NSObject, DownloadManageable {
   }
 
   private func _cancelDownloads() async {
+    retriedAfterReauth.removeAll()
+    pendingReauthRequests.removeAll()
+    isReauthenticating = false
     tasks.removeAll()
     taskQueue.cancelAllOperations()
     taskOperations.removeAll()
@@ -333,6 +345,7 @@ actor DownloadManager: NSObject, DownloadManageable {
   }
 
   func _resetFailedDownloads() async {
+    retriedAfterReauth.removeAll()
     let failedRequests = await requestManager.getAndResetFailedDownloads()
     guard isAllowedToTriggerDownload else { return }
     for failedRequest in failedRequests {
@@ -513,6 +526,79 @@ actor DownloadManager: NSObject, DownloadManageable {
     tasks.removeValue(forKey: task)
     taskOperations[downloadRequest]?.complete()
     taskOperations.removeValue(forKey: downloadRequest)
+  }
+
+  func handleAuthenticationExpired(
+    downloadRequest: DownloadRequest,
+    task: URLSessionTask
+  )
+    -> Bool {
+    guard let certTag, let serverURL,
+          ClientCertificateManager.shared.hasIdentity(tag: certTag)
+    else { return false }
+
+    if retriedAfterReauth.contains(downloadRequest.objectID) {
+      Task {
+        await finishDownload(
+          downloadRequest: downloadRequest,
+          task: task,
+          error: .authenticationExpired
+        )
+      }
+      return true
+    }
+
+    tasks.removeValue(forKey: task)
+    taskOperations[downloadRequest]?.complete()
+    taskOperations.removeValue(forKey: downloadRequest)
+    pendingReauthRequests.append(downloadRequest)
+
+    if !isReauthenticating {
+      isReauthenticating = true
+      taskQueue.isSuspended = true
+      os_log(
+        "Download Manager (%s): 403 detected, pausing queue for mTLS re-auth",
+        log: self.log, type: .info, self.name
+      )
+      Task {
+        await performReauthAndRetry()
+      }
+    }
+
+    return true
+  }
+
+  private func performReauthAndRetry() async {
+    do {
+      try await ClientCertificateSession.shared.reauthenticateIfNeeded(
+        accountTag: certTag!,
+        serverURL: serverURL!
+      )
+      os_log(
+        "Download Manager (%s): mTLS re-auth succeeded, retrying %d downloads",
+        log: self.log, type: .info, self.name, pendingReauthRequests.count
+      )
+      for request in pendingReauthRequests {
+        retriedAfterReauth.insert(request.objectID)
+        addDownloadTaskOperation(downloadRequest: request)
+      }
+    } catch {
+      os_log(
+        "Download Manager (%s): mTLS re-auth failed: %s",
+        log: self.log, type: .error, self.name, error.localizedDescription
+      )
+      for request in pendingReauthRequests {
+        await finishDownload(
+          downloadRequest: request,
+          task: nil,
+          error: .authenticationExpired
+        )
+      }
+    }
+
+    pendingReauthRequests.removeAll()
+    isReauthenticating = false
+    taskQueue.isSuspended = false
   }
 
   private var isAllowedToTriggerDownload: Bool {

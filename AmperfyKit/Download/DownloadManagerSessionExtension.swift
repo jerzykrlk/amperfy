@@ -46,6 +46,14 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
     Task {
       guard let taskInfo = await tasks[downloadTask] else { return }
 
+      if let httpResponse = downloadTask.response as? HTTPURLResponse,
+         httpResponse.statusCode == 403 {
+        let didHandle = await self.handleAuthenticationExpired(
+          downloadRequest: taskInfo.request, task: downloadTask
+        )
+        if didHandle { return }
+      }
+
       var downloadError: DownloadError?
       if let filePath = filePath,
          let fileSize = self.fileManager.getFileSize(url: filePath) {
@@ -89,6 +97,15 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
     guard error != nil else { return }
     Task {
       guard let taskInfo = await tasks[task] else { return }
+
+      if let httpResponse = task.response as? HTTPURLResponse,
+         httpResponse.statusCode == 403 {
+        let didHandle = await self.handleAuthenticationExpired(
+          downloadRequest: taskInfo.request, task: task
+        )
+        if didHandle { return }
+      }
+
       await self.finishDownload(downloadRequest: taskInfo.request, task: task, error: .fetchFailed)
     }
   }

@@ -135,6 +135,11 @@ public class MetaManager {
       storage: storage.async,
       getDownloadDelegateCB: getDownloadDelegateCB
     )
+    let accountCertTag = ClientCertificateManager.accountTag(for: account.ident)
+    let certTag: String? = ClientCertificateManager.shared.hasIdentity(tag: accountCertTag)
+      ? accountCertTag : nil
+    let serverURL: URL? = settings.accounts.getSetting(account.info).read.loginCredentials
+      .flatMap { URL(string: $0.activeBackendServerUrl) }
     let dlManager = DownloadManager(
       name: "PlayableDownloader",
       storage: storage.async,
@@ -146,7 +151,9 @@ public class MetaManager {
       notificationHandler: notificationHandler,
       urlCleanser: backendApi,
       limitCacheSize: true,
-      isFailWithPopupError: true
+      isFailWithPopupError: true,
+      certTag: certTag,
+      serverURL: serverURL
     )
 
     let configuration = URLSessionConfiguration
@@ -180,6 +187,11 @@ public class MetaManager {
       getDownloadDelegateCB: getDownloadDelegateCB
     )
     requestManager.clearAllDownloadsAsyncIfAllHaveFinished()
+    let accountCertTag = ClientCertificateManager.accountTag(for: account.ident)
+    let certTag: String? = ClientCertificateManager.shared.hasIdentity(tag: accountCertTag)
+      ? accountCertTag : nil
+    let serverURL: URL? = settings.accounts.getSetting(account.info).read.loginCredentials
+      .flatMap { URL(string: $0.activeBackendServerUrl) }
     let dlManager = DownloadManager(
       name: "ArtworkDownloader",
       storage: storage.async,
@@ -191,7 +203,9 @@ public class MetaManager {
       notificationHandler: notificationHandler,
       urlCleanser: backendApi,
       limitCacheSize: false,
-      isFailWithPopupError: false
+      isFailWithPopupError: false,
+      certTag: certTag,
+      serverURL: serverURL
     )
 
     let validationCB: PreDownloadIsValidCB =
