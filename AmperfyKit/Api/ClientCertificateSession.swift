@@ -60,29 +60,64 @@ public final class ClientCertificateSession: NSObject, URLSessionDelegate, @unch
   }
 
   public func performHandshake(serverURL: URL, credential: URLCredential) async throws {
+    guard let host = serverURL.host else {
+      throw ClientCertificateSessionError.invalidResponse
+    }
+
+    let protectionSpace = URLProtectionSpace(
+      host: host,
+      port: serverURL.port ?? 443,
+      protocol: serverURL.scheme,
+      realm: nil,
+      authenticationMethod: NSURLAuthenticationMethodClientCertificate
+    )
+    URLCredentialStorage.shared.setDefaultCredential(credential, for: protectionSpace)
+
     let handler = ClientCertificateURLSessionDelegate(credential: credential)
-    let config = URLSessionConfiguration.default
+    let config = URLSessionConfiguration.ephemeral
+    config.httpCookieStorage = HTTPCookieStorage.shared
     let session = URLSession(configuration: config, delegate: handler, delegateQueue: nil)
     defer { session.finishTasksAndInvalidate() }
 
     var request = URLRequest(url: serverURL)
     request.httpMethod = "GET"
 
-    let (_, response) = try await session.data(for: request)
+    let (data, response) = try await session.data(for: request)
 
     guard let httpResponse = response as? HTTPURLResponse else {
       throw ClientCertificateSessionError.invalidResponse
     }
 
     let statusCode = httpResponse.statusCode
+    os_log(
+      .default,
+      "mTLS handshake response: status %d, URL: %{public}s",
+      statusCode,
+      httpResponse.url?.absoluteString ?? "nil"
+    )
+
     guard (200 ... 499).contains(statusCode) else {
       throw ClientCertificateSessionError.serverError(statusCode: statusCode)
     }
 
+    let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+    if contentType.contains("text/html") {
+      let body = String(data: data.prefix(256), encoding: .utf8) ?? ""
+      os_log(
+        .error,
+        "mTLS handshake got HTML response (status %d) — cert may not have been accepted. Body: %{public}s",
+        statusCode,
+        body
+      )
+      throw ClientCertificateSessionError.handshakeFailed
+    }
+
+    let cookies = HTTPCookieStorage.shared.cookies(for: serverURL) ?? []
     os_log(
       .default,
-      "mTLS handshake completed (status %d), cookies stored",
-      statusCode
+      "mTLS handshake completed (status %d), %d cookies stored",
+      statusCode,
+      cookies.count
     )
   }
 }
@@ -102,8 +137,15 @@ final class ClientCertificateURLSessionDelegate: NSObject, URLSessionDelegate, @
     didReceive challenge: URLAuthenticationChallenge,
     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> ()
   ) {
+    os_log(
+      .default,
+      "mTLS delegate received challenge: %{public}s for host: %{public}s",
+      challenge.protectionSpace.authenticationMethod,
+      challenge.protectionSpace.host
+    )
     switch challenge.protectionSpace.authenticationMethod {
     case NSURLAuthenticationMethodClientCertificate:
+      os_log(.default, "mTLS: presenting client certificate")
       completionHandler(.useCredential, credential)
     case NSURLAuthenticationMethodServerTrust:
       if let trust = challenge.protectionSpace.serverTrust {
@@ -122,6 +164,7 @@ final class ClientCertificateURLSessionDelegate: NSObject, URLSessionDelegate, @
 public enum ClientCertificateSessionError: LocalizedError {
   case invalidResponse
   case serverError(statusCode: Int)
+  case handshakeFailed
 
   public var errorDescription: String? {
     switch self {
@@ -129,6 +172,9 @@ public enum ClientCertificateSessionError: LocalizedError {
       return "Invalid response from server during certificate authentication."
     case let .serverError(statusCode):
       return "Server returned error \(statusCode) during certificate authentication."
+    case .handshakeFailed:
+      return
+        "Certificate authentication failed. The server did not accept the client certificate."
     }
   }
 }

@@ -745,7 +745,8 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
       AF.request(url, method: .get).validate().responseData { response in
 
         if let data = response.data {
-          continuation.resume(returning: APIDataResponse(data: data, url: url))
+          let contentType = response.response?.value(forHTTPHeaderField: "Content-Type")
+          continuation.resume(returning: APIDataResponse(data: data, url: url, contentType: contentType))
           return
         }
         if let err = response.error {
@@ -759,22 +760,56 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
 
   private func request(url: URL) async throws -> APIDataResponse {
     do {
-      return try await performAFRequest(url: url)
+      let response = try await performAFRequest(url: url)
+      if needsMtlsReauth(response: response) {
+        return try await reauthenticateAndRetry(url: url)
+      }
+      return response
     } catch {
-      if let account,
+      if let certTag = activeCertTag(),
          let serverURLString = credentials.wrappedValue?.activeBackendServerUrl,
-         let serverURL = URL(string: serverURLString),
-         ClientCertificateManager.shared.hasIdentity(
-           tag: ClientCertificateManager.accountTag(for: account.ident)
-         ) {
+         let serverURL = URL(string: serverURLString) {
         try await ClientCertificateSession.shared.reauthenticateIfNeeded(
-          accountTag: ClientCertificateManager.accountTag(for: account.ident),
+          accountTag: certTag,
           serverURL: serverURL
         )
         return try await performAFRequest(url: url)
       }
       throw error
     }
+  }
+
+  private func activeCertTag() -> String? {
+    guard let account else { return nil }
+    let accountTag = ClientCertificateManager.accountTag(for: account.ident)
+    if ClientCertificateManager.shared.hasIdentity(tag: accountTag) {
+      return accountTag
+    }
+    if ClientCertificateManager.shared.hasIdentity(tag: ClientCertificateManager.loginTag) {
+      return ClientCertificateManager.loginTag
+    }
+    return nil
+  }
+
+  private func needsMtlsReauth(response: APIDataResponse) -> Bool {
+    guard activeCertTag() != nil else { return false }
+    if let contentType = response.contentType?.lowercased(),
+       contentType.contains("text/html") {
+      return true
+    }
+    return false
+  }
+
+  private func reauthenticateAndRetry(url: URL) async throws -> APIDataResponse {
+    guard let certTag = activeCertTag(),
+          let serverURLString = credentials.wrappedValue?.activeBackendServerUrl,
+          let serverURL = URL(string: serverURLString)
+    else { throw ResponseError(type: .api, message: "Missing credentials for re-authentication") }
+    try await ClientCertificateSession.shared.reauthenticateIfNeeded(
+      accountTag: certTag,
+      serverURL: serverURL
+    )
+    return try await performAFRequest(url: url)
   }
 
   func requesetLibraryMetaData() async throws -> AuthentificationHandshake {

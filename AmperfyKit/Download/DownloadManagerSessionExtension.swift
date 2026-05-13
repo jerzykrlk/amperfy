@@ -47,7 +47,9 @@ extension DownloadManager: URLSessionDelegate, URLSessionDownloadDelegate {
       guard let taskInfo = await tasks[downloadTask] else { return }
 
       if let httpResponse = downloadTask.response as? HTTPURLResponse,
-         httpResponse.statusCode == 403 {
+         (httpResponse.statusCode == 403
+           || httpResponse.value(forHTTPHeaderField: "Content-Type")?.contains("text/html") == true)
+      {
         let didHandle = await self.handleAuthenticationExpired(
           downloadRequest: taskInfo.request, task: downloadTask
         )
