@@ -165,6 +165,10 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
     self.credentials.wrappedValue = credentials
   }
 
+  var cloudflareAccessHeaders: [String: String] {
+    credentials.wrappedValue?.cloudflareAccessHeaders ?? [:]
+  }
+
   private func authenticate(credentials: LoginCredentials) async throws
     -> AuthentificationHandshake {
     do {
@@ -178,6 +182,9 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
   }
 
   func isAuthenticationValid(credentials: LoginCredentials) async throws {
+    // Store credentials up front so Cloudflare Access headers are attached to the
+    // handshake request, not just to requests made after login succeeds.
+    provideCredentials(credentials: credentials)
     try await requestAuth(credentials: credentials)
   }
 
@@ -741,8 +748,9 @@ final class AmpacheXmlServerApi: URLCleanser, Sendable {
   }
 
   private func request(url: URL) async throws -> APIDataResponse {
-    try await withUnsafeThrowingContinuation { continuation in
-      AF.request(url, method: .get).validate().responseData { response in
+    let headers = HTTPHeaders(credentials.wrappedValue?.cloudflareAccessHeaders ?? [:])
+    return try await withUnsafeThrowingContinuation { continuation in
+      AF.request(url, method: .get, headers: headers).validate().responseData { response in
 
         if let data = response.data {
           continuation.resume(returning: APIDataResponse(data: data, url: url))

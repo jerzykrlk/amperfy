@@ -45,6 +45,10 @@ final class AmpacheApi: BackendApi {
 
   public var serverApiVersion: String { ampacheXmlServerApi.serverApiVersion.wrappedValue ?? "-" }
 
+  public var cloudflareAccessHeaders: [String: String] {
+    ampacheXmlServerApi.cloudflareAccessHeaders
+  }
+
   func provideCredentials(credentials: LoginCredentials) {
     ampacheXmlServerApi.provideCredentials(credentials: credentials)
   }

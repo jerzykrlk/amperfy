@@ -30,6 +30,8 @@ struct AccountSettingsView: View {
   @State
   var isPwUpdateDialogVisible = false
   @State
+  var isCloudflareAccessDialogVisible = false
+  @State
   var isShowLogoutAlert = false
   @State
   var isShowResyncLibraryAlert = false
@@ -77,6 +79,8 @@ struct AccountSettingsView: View {
 
     // delete cached files
     CacheFileManager.shared.deleteAccountCache(accountInfo: accountInfo)
+    // remove the Cloudflare Access secret from the Keychain
+    CloudflareAccessCredentialStore.shared.removeSecret(forAccountIdent: accountInfo.ident)
     // reset login credentials -> at new start the login view is presented to auth and resync library
     appDelegate.storage.settings.accounts.logout(accountInfo)
     appDelegate.notificationHandler.post(name: .accountDeleted, object: nil, userInfo: nil)
@@ -216,6 +220,18 @@ struct AccountSettingsView: View {
           }
 
           SettingsSection {
+            SettingsRow(title: "Cloudflare Access", splitPercentage: splitPercentage) {
+              SecondaryText(
+                appDelegate.storage.settings.accounts.getSetting(settings.activeAccountInfo).read
+                  .loginCredentials?.isCloudflareAccessEnabled == true ? "Enabled" : "Disabled"
+              )
+            }
+            SettingsButtonRow(title: "Configure Service Token") {
+              withPopupAnimation { isCloudflareAccessDialogVisible = true }
+            }
+          }
+
+          SettingsSection {
             SettingsButtonRow(title: "Update Password") {
               withPopupAnimation { isPwUpdateDialogVisible = true }
             }
@@ -264,6 +280,9 @@ struct AccountSettingsView: View {
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $isPwUpdateDialogVisible) {
       UpdatePasswordView(isVisible: $isPwUpdateDialogVisible)
+    }
+    .sheet(isPresented: $isCloudflareAccessDialogVisible) {
+      CloudflareAccessSettingsView(isVisible: $isCloudflareAccessDialogVisible)
     }
   }
 }

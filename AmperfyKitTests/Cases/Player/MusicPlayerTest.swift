@@ -219,6 +219,7 @@ final class MOCK_DownloadManagerDelegate: DownloadManagerDelegate {
 final class MOCK_BackendApi: BackendApi {
   let clientApiVersion: String = ""
   let serverApiVersion: String = ""
+  let cloudflareAccessHeaders: [String: String] = [:]
   func provideCredentials(credentials: LoginCredentials) {}
   func isAuthenticationValid(credentials: LoginCredentials) async throws {
     throw BackendError.notSupported

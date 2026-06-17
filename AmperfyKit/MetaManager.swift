@@ -153,6 +153,7 @@ public class MetaManager {
       .background(
         withIdentifier: "\(Bundle.main.bundleIdentifier!).\(account.ident).PlayableDownloader.background"
       )
+    applyCloudflareAccessHeaders(to: configuration)
     let urlSession = URLSession(
       configuration: configuration,
       delegate: dlManager,
@@ -233,6 +234,7 @@ public class MetaManager {
       }
 
     let configuration = URLSessionConfiguration.default
+    applyCloudflareAccessHeaders(to: configuration)
     let urlSession = URLSession(
       configuration: configuration,
       delegate: dlManager,
@@ -245,6 +247,19 @@ public class MetaManager {
     )
 
     return dlManager
+  }
+
+  /// Attaches Cloudflare Access service-token headers to a download session configuration
+  /// when the active account has the feature enabled. No-op otherwise.
+  private func applyCloudflareAccessHeaders(to configuration: URLSessionConfiguration) {
+    let headers = settings.accounts.getSetting(account.info).read.loginCredentials?
+      .cloudflareAccessHeaders ?? [:]
+    guard !headers.isEmpty else { return }
+    var additionalHeaders = configuration.httpAdditionalHeaders ?? [:]
+    for (field, value) in headers {
+      additionalHeaders[field] = value
+    }
+    configuration.httpAdditionalHeaders = additionalHeaders
   }
 
   @MainActor

@@ -255,6 +255,10 @@ final class SubsonicServerApi: URLCleanser, Sendable {
     self.credentials.wrappedValue = credentials
   }
 
+  var cloudflareAccessHeaders: [String: String] {
+    credentials.wrappedValue?.cloudflareAccessHeaders ?? [:]
+  }
+
   public func cleanse(url: URL?) -> CleansedURL {
     guard let url = url,
           var urlComp = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -284,6 +288,9 @@ final class SubsonicServerApi: URLCleanser, Sendable {
   }
 
   public func isAuthenticationValid(credentials: LoginCredentials) async throws {
+    // Store credentials up front so Cloudflare Access headers are attached to the
+    // pre-login ping/version requests, not just to requests made after login succeeds.
+    provideCredentials(credentials: credentials)
     let version = try await determineApiVersionToUse(providedCredentials: credentials)
     let urlComp = try createAuthApiUrlComponent(
       version: version,
@@ -957,8 +964,9 @@ final class SubsonicServerApi: URLCleanser, Sendable {
   }
 
   private func request(url: URL) async throws -> APIDataResponse {
-    try await withUnsafeThrowingContinuation { continuation in
-      let afRequest = AF.request(url, method: .get)
+    let headers = HTTPHeaders(credentials.wrappedValue?.cloudflareAccessHeaders ?? [:])
+    return try await withUnsafeThrowingContinuation { continuation in
+      let afRequest = AF.request(url, method: .get, headers: headers)
       afRequest.validate().responseData { response in
         if response.response?.statusCode == 404 {
           let cleanedURL = self.cleanse(url: response.request?.url)

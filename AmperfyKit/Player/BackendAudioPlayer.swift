@@ -550,6 +550,8 @@ class BackendAudioPlayer: NSObject {
   ) async throws {
     let streamingMaxBitrate = streamingMaxBitrates.getActive(networkMonitor: networkMonitor)
     let streamingTranscodingFormat = streamingTranscodings.getActive(networkMonitor: networkMonitor)
+    // Cloudflare Access headers apply only to the user's own server (not to external radio hosts).
+    var streamHeaders: [String: String] = [:]
     @MainActor
     func provideUrl() async throws -> URL {
       if let radio = playable.asRadio {
@@ -576,7 +578,9 @@ class BackendAudioPlayer: NSObject {
         guard let accountInfo = playable.account?.info else {
           throw BackendError.noCredentials
         }
-        return try await getBackendApiCB(accountInfo).generateUrl(
+        let backendApi = getBackendApiCB(accountInfo)
+        streamHeaders = backendApi.cloudflareAccessHeaders
+        return try await backendApi.generateUrl(
           forStreamingPlayable: playable.info,
           maxBitrate: streamingMaxBitrate,
           formatPreference: streamingTranscodingFormat
@@ -605,6 +609,7 @@ class BackendAudioPlayer: NSObject {
       playable: playable,
       withUrl: streamUrl,
       streamingMaxBitrate: streamingMaxBitrate,
+      streamHeaders: streamHeaders,
       queueType: queueType
     )
   }
@@ -613,6 +618,7 @@ class BackendAudioPlayer: NSObject {
     playable: AbstractPlayable,
     withUrl url: URL,
     streamingMaxBitrate: StreamingMaxBitratePreference = .noLimit,
+    streamHeaders: [String: String] = [:],
     queueType: BackendAudioQueueType
   ) {
     if queueType == .play {
@@ -627,11 +633,12 @@ class BackendAudioPlayer: NSObject {
     } else {
       asset = AVURLAsset(url: url)
     }
-    playInPlayer(asset: asset, queueType: queueType)
+    playInPlayer(asset: asset, streamHeaders: streamHeaders, queueType: queueType)
   }
 
   private func playInPlayer(
     asset: AVURLAsset?,
+    streamHeaders: [String: String] = [:],
     queueType: BackendAudioQueueType
   ) {
     guard let asset = asset else {
@@ -642,10 +649,10 @@ class BackendAudioPlayer: NSObject {
     switch queueType {
     case .play:
       currentPreparedUrl = asset.url.absoluteString
-      player?.play(url: asset.url)
+      player?.play(url: asset.url, headers: streamHeaders)
     case .queue:
       nextPreloadedUrl = asset.url.absoluteString
-      player?.queue(url: asset.url)
+      player?.queue(url: asset.url, headers: streamHeaders)
     }
   }
 

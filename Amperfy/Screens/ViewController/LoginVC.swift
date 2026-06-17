@@ -166,6 +166,72 @@ class LoginVC: UIViewController {
     return button
   }()
 
+  // Cloudflare Access service-token values entered via the Advanced Login Settings popup.
+  // The presence of both a client id and secret enables the feature for the new account.
+  private var cloudflareClientId: String = ""
+  private var cloudflareClientSecret: String = ""
+
+  fileprivate lazy var advancedSettingsButton: UIButton = {
+    var config = UIButton.Configuration.glass()
+    let button = UIButton(configuration: config)
+    button.setTitle("Advanced Login Settings", for: .normal)
+    button.addTarget(
+      self,
+      action: #selector(Self.advancedSettingsPressed),
+      for: .touchUpInside
+    )
+    button.preferredBehavioralStyle = .pad
+    return button
+  }()
+
+  @IBAction
+  func advancedSettingsPressed() {
+    serverUrlTF.resignFirstResponder()
+    usernameTF.resignFirstResponder()
+    passwordTF.resignFirstResponder()
+    presentCloudflareAccessDialog()
+  }
+
+  private func presentCloudflareAccessDialog() {
+    let alert = UIAlertController(
+      title: "Cloudflare Access Service Token",
+      message: "Optional. Provide a Client ID and Client Secret to authenticate through Cloudflare Access. Leave both empty to disable.",
+      preferredStyle: .alert
+    )
+    alert.addTextField { tf in
+      tf.placeholder = "Client ID"
+      tf.autocorrectionType = .no
+      tf.autocapitalizationType = .none
+      tf.text = self.cloudflareClientId
+    }
+    alert.addTextField { tf in
+      tf.placeholder = "Client Secret"
+      tf.isSecureTextEntry = true
+      tf.autocorrectionType = .no
+      tf.autocapitalizationType = .none
+      tf.text = self.cloudflareClientSecret
+    }
+    alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+    alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
+      self.cloudflareClientId = alert.textFields?.first?.text?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      self.cloudflareClientSecret = alert.textFields?.last?.text ?? ""
+      self.updateAdvancedSettingsButtonTitle()
+    })
+    present(alert, animated: true)
+  }
+
+  private var isCloudflareAccessConfigured: Bool {
+    !cloudflareClientId.isEmpty && !cloudflareClientSecret.isEmpty
+  }
+
+  private func updateAdvancedSettingsButtonTitle() {
+    let title = isCloudflareAccessConfigured
+      ? "Advanced Login Settings (CF Access set)"
+      : "Advanced Login Settings"
+    advancedSettingsButton.setTitle(title, for: .normal)
+  }
+
   fileprivate lazy var loginButton: UIButton = {
     var config = UIButton.Configuration.prominentGlass()
     config.image = .login
@@ -201,10 +267,45 @@ class LoginVC: UIViewController {
 
   @IBAction
   func loginPressed() {
-    serverUrlTF.resignFirstResponder()
-    usernameTF.resignFirstResponder()
-    passwordTF.resignFirstResponder()
+    dismissKeyboard()
     login()
+  }
+
+  @objc
+  func dismissKeyboard() {
+    view.endEditing(true)
+  }
+
+  @objc
+  private func keyboardWillChangeFrame(_ notification: Notification) {
+    guard let userInfo = notification.userInfo,
+          let keyboardFrame = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?
+          .cgRectValue,
+          let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
+    else { return }
+
+    // Force layout so the form frame is up to date, then measure how far the form's bottom
+    // (including the login button below it) extends past the top of the keyboard.
+    view.layoutIfNeeded()
+    let keyboardTopInViewY = view.bounds.height - keyboardFrame.height
+    let formBottomInViewY = loginGlassContainer.frame.maxY
+    let overlap = formBottomInViewY - keyboardTopInViewY
+
+    let shift = overlap > 0 ? -(overlap + 16) : 0
+    formCenterYConstraint?.constant = shift
+    UIView.animate(withDuration: duration) {
+      self.view.layoutIfNeeded()
+    }
+  }
+
+  @objc
+  private func keyboardWillHide(_ notification: Notification) {
+    let duration = (notification
+      .userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+    formCenterYConstraint?.constant = 0
+    UIView.animate(withDuration: duration) {
+      self.view.layoutIfNeeded()
+    }
   }
 
   public lazy var formView: UIView = {
@@ -213,6 +314,7 @@ class LoginVC: UIViewController {
     self.passwordTF.translatesAutoresizingMaskIntoConstraints = false
     apiLabel.translatesAutoresizingMaskIntoConstraints = false
     self.apiSelectorButton.translatesAutoresizingMaskIntoConstraints = false
+    self.advancedSettingsButton.translatesAutoresizingMaskIntoConstraints = false
 
     let view = UIView()
     view.addSubview(serverUrlTF)
@@ -220,6 +322,7 @@ class LoginVC: UIViewController {
     view.addSubview(passwordTF)
     view.addSubview(apiLabel)
     view.addSubview(apiSelectorButton)
+    view.addSubview(advancedSettingsButton)
 
     let padding: CGFloat = 0
     let elementHeight: CGFloat = 40
@@ -288,8 +391,22 @@ class LoginVC: UIViewController {
       ),
       apiSelectorButton.heightAnchor.constraint(equalToConstant: elementHeight),
 
+      advancedSettingsButton.safeAreaLayoutGuide.topAnchor.constraint(
+        equalTo: apiSelectorButton.bottomAnchor,
+        constant: spaceInBetween
+      ),
+      advancedSettingsButton.safeAreaLayoutGuide.leadingAnchor.constraint(
+        equalTo: view.safeAreaLayoutGuide.leadingAnchor,
+        constant: padding
+      ),
+      advancedSettingsButton.safeAreaLayoutGuide.trailingAnchor.constraint(
+        equalTo: view.safeAreaLayoutGuide.trailingAnchor,
+        constant: -padding
+      ),
+      advancedSettingsButton.heightAnchor.constraint(equalToConstant: elementHeight),
+
       view.heightAnchor
-        .constraint(equalToConstant: (4 * elementHeight) + (3 * spaceInBetween) + (2 * padding)),
+        .constraint(equalToConstant: (5 * elementHeight) + (4 * spaceInBetween) + (2 * padding)),
     ])
 
     return view
@@ -302,6 +419,7 @@ class LoginVC: UIViewController {
   var formLeadingConstraing: NSLayoutConstraint?
   var formTrailingConstraing: NSLayoutConstraint?
   var formWitdhConstraing: NSLayoutConstraint?
+  var formCenterYConstraint: NSLayoutConstraint?
 
   public lazy var mainContainerView: UIView = {
     self.formView.translatesAutoresizingMaskIntoConstraints = false
@@ -388,12 +506,28 @@ class LoginVC: UIViewController {
     }
 
     var credentials = LoginCredentials(serverUrl: serverUrl, username: username, password: password)
+
+    if isCloudflareAccessConfigured {
+      credentials.isCloudflareAccessEnabled = true
+      credentials.cloudflareAccessClientId = cloudflareClientId
+    }
+
     var accountInfo = Account.createInfo(credentials: credentials)
 
     guard !appDelegate.storage.settings.accounts.allAccounts.contains(where: { $0 == accountInfo })
     else {
       showErrorMsg(message: "Account already added!")
       return
+    }
+
+    // Persist the secret to the Keychain before authentication so the login probe can use it.
+    // The account ident is based on the server URL + username, so it is stable across API
+    // auto-detection (only `backendApi` changes, which is not part of the ident hash).
+    if credentials.isCloudflareAccessEnabled {
+      CloudflareAccessCredentialStore.shared.setSecret(
+        cloudflareClientSecret,
+        forAccountIdent: accountInfo.ident
+      )
     }
 
     Task { @MainActor in
@@ -450,6 +584,25 @@ class LoginVC: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     updateApiSelectorText()
+    updateAdvancedSettingsButtonTitle()
+
+    // Tap anywhere outside the text fields to dismiss the keyboard.
+    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(Self.dismissKeyboard))
+    tapGesture.cancelsTouchesInView = false
+    view.addGestureRecognizer(tapGesture)
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(Self.keyboardWillChangeFrame(_:)),
+      name: UIResponder.keyboardWillChangeFrameNotification,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(Self.keyboardWillHide(_:)),
+      name: UIResponder.keyboardWillHideNotification,
+      object: nil
+    )
 
     apiSelectorButton.showsMenuAsPrimaryAction = true
     apiSelectorButton.menu = UIMenu(title: "Select API", children: [
@@ -506,13 +659,18 @@ class LoginVC: UIViewController {
       multiplier: 1.0,
       constant: 0
     ))
+    formCenterYConstraint = formGlassContainer.centerYAnchor.constraint(
+      equalTo: view.centerYAnchor,
+      constant: 0
+    )
+
     NSLayoutConstraint.activate([
       amperfyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 0),
       amperfyLabel.bottomAnchor.constraint(equalTo: formGlassContainer.topAnchor, constant: -30),
       amperfyLabel.heightAnchor.constraint(equalToConstant: 60),
 
       formGlassContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 0),
-      formGlassContainer.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 0),
+      formCenterYConstraint!,
       formWitdhConstraing!,
       formLeadingConstraing!,
       formTrailingConstraing!,
@@ -584,6 +742,12 @@ class LoginVC: UIViewController {
       .loginCredentials {
       serverUrlTF.text = credentials.serverUrl
       usernameTF.text = credentials.username
+      if credentials.isCloudflareAccessEnabled {
+        cloudflareClientId = credentials.cloudflareAccessClientId
+        cloudflareClientSecret = CloudflareAccessCredentialStore.shared
+          .getSecret(forAccountIdent: Account.createInfo(credentials: credentials).ident) ?? ""
+      }
+      updateAdvancedSettingsButtonTitle()
     }
   }
 

@@ -62,6 +62,10 @@ extension SubsonicApi: BackendApi {
     subsonicServerApi.serverApiVersion.wrappedValue?.description ?? "-"
   }
 
+  public var cloudflareAccessHeaders: [String: String] {
+    subsonicServerApi.cloudflareAccessHeaders
+  }
+
   func provideCredentials(credentials: LoginCredentials) {
     subsonicServerApi.provideCredentials(credentials: credentials)
   }

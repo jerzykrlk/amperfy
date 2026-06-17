@@ -260,6 +260,9 @@ public struct TranscodingInfo {
 public protocol BackendApi: URLCleanser, Sendable {
   var clientApiVersion: String { get }
   var serverApiVersion: String { get }
+  /// Cloudflare Access service-token headers for the active credentials, or empty when disabled.
+  /// Used to authorise streaming requests, which bypass the Alamofire/URLSession request paths.
+  var cloudflareAccessHeaders: [String: String] { get }
   func provideCredentials(credentials: LoginCredentials)
   func isAuthenticationValid(credentials: LoginCredentials) async throws
   func generateUrl(forDownloadingPlayable playableInfo: AbstractPlayableInfo) async throws -> URL
