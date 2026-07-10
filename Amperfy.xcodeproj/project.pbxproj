@@ -108,6 +108,7 @@
 		50791E7A28D31090006CE6E5 /* ServerURLsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50791E7928D31090006CE6E5 /* ServerURLsSettingsView.swift */; };
 		50C0FFEE0000000000A00001 /* CustomHTTPHeadersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C0FFEE0000000000A00002 /* CustomHTTPHeadersView.swift */; };
 		B5C8DE010000000000000005 /* ClientCertificateSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C8DE010000000000000006 /* ClientCertificateSettingsView.swift */; };
+		50C0FFEE0000000000A00003 /* AdvancedLoginOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C0FFEE0000000000A00004 /* AdvancedLoginOptionsView.swift */; };
 		50791E7C28D32B8A006CE6E5 /* AlternativeURLAddDialogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50791E7B28D32B8A006CE6E5 /* AlternativeURLAddDialogView.swift */; };
 		50791E7F28D363F0006CE6E5 /* InfoBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50791E7E28D363F0006CE6E5 /* InfoBannerView.swift */; };
 		50791E8128D365E9006CE6E5 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50791E8028D365E9006CE6E5 /* UpdatePasswordView.swift */; };
@@ -1148,6 +1149,7 @@
 		B5C8DE010000000000000002 /* ClientCertificateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientCertificateManager.swift; sourceTree = "<group>"; };
 		B5C8DE010000000000000004 /* ClientCertificateSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientCertificateSession.swift; sourceTree = "<group>"; };
 		B5C8DE010000000000000006 /* ClientCertificateSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientCertificateSettingsView.swift; sourceTree = "<group>"; };
+		50C0FFEE0000000000A00004 /* AdvancedLoginOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedLoginOptionsView.swift; sourceTree = "<group>"; };
 		50FF311A2BBC4D8000C2C3B9 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		50RA71NG2F5A01230085CBB3 /* RatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingView.swift; sourceTree = "<group>"; };
 		631C166A2C6D3D9A0085F62E /* SettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRow.swift; sourceTree = "<group>"; };
@@ -1448,6 +1450,7 @@
 				50791E7B28D32B8A006CE6E5 /* AlternativeURLAddDialogView.swift */,
 				50791E8028D365E9006CE6E5 /* UpdatePasswordView.swift */,
 				B5C8DE010000000000000006 /* ClientCertificateSettingsView.swift */,
+				50C0FFEE0000000000A00004 /* AdvancedLoginOptionsView.swift */,
 			);
 			path = Account;
 			sourceTree = "<group>";
@@ -2531,6 +2534,7 @@
 				50791E7A28D31090006CE6E5 /* ServerURLsSettingsView.swift in Sources */,
 				50C0FFEE0000000000A00001 /* CustomHTTPHeadersView.swift in Sources */,
 				B5C8DE010000000000000005 /* ClientCertificateSettingsView.swift in Sources */,
+				50C0FFEE0000000000A00003 /* AdvancedLoginOptionsView.swift in Sources */,
 				50C16C0621E241B200F086F0 /* SearchVC.swift in Sources */,
 				502041A12E2A3CDB003CE29A /* SliderView.swift in Sources */,
 				502041A22E2A3CDB003CE29A /* EquilizerView.swift in Sources */,
