@@ -73,7 +73,7 @@ public struct ClientCertificateInfo: Sendable {
 
 // MARK: - ClientCertificateManager
 
-public final class ClientCertificateManager: Sendable {
+public final class ClientCertificateManager: @unchecked Sendable {
   public static let shared = ClientCertificateManager()
   public static let loginTag = "amperfy.mtls.login"
 
@@ -82,6 +82,33 @@ public final class ClientCertificateManager: Sendable {
   }
 
   private init() {}
+
+  /// Account ident of the currently streaming account, if any.
+  /// Set on the main actor before playback starts and read from the streaming library's
+  /// background URLSession delegate queue, so access is lock-protected.
+  private let activeStreamingTagLock = NSLock()
+  private var _activeStreamingCertificateAccountIdent: String?
+
+  public var activeStreamingCertificateAccountIdent: String? {
+    get {
+      activeStreamingTagLock.lock()
+      defer { activeStreamingTagLock.unlock() }
+      return _activeStreamingCertificateAccountIdent
+    }
+    set {
+      activeStreamingTagLock.lock()
+      defer { activeStreamingTagLock.unlock() }
+      _activeStreamingCertificateAccountIdent = newValue
+    }
+  }
+
+  /// The `URLCredential` to present for the currently streaming account, or `nil` if no account is
+  /// set (e.g. radio). Uses the same accountTag→loginTag fallback as the API and download paths,
+  /// so it works even when the identity is still under the login tag. Safe to call from any thread.
+  public func activeStreamingCredential() -> URLCredential? {
+    guard let ident = activeStreamingCertificateAccountIdent else { return nil }
+    return credentialForAccountOrLogin(accountIdent: ident)
+  }
 
   public func importPKCS12(data: Data, password: String) throws -> (
     identity: SecIdentity, info: ClientCertificateInfo
@@ -147,6 +174,17 @@ public final class ClientCertificateManager: Sendable {
       certificates: nil,
       persistence: .forSession
     )
+  }
+
+  /// Resolves the client-certificate credential to present for the given account, falling back to the
+  /// login-time certificate (used before the identity is migrated from the login tag to the account tag).
+  /// Shared by every per-request mTLS path: API requests, downloads, and the login reachability probe.
+  public func credentialForAccountOrLogin(accountIdent: String?) -> URLCredential? {
+    if let accountIdent,
+       let credential = getCredential(tag: Self.accountTag(for: accountIdent)) {
+      return credential
+    }
+    return getCredential(tag: Self.loginTag)
   }
 
   public func removeIdentity(tag: String) throws {

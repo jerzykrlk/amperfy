@@ -325,23 +325,32 @@ public final class BackendProxy: Sendable {
       throw AuthenticationError.invalidUrl
     }
 
-    if let credential = ClientCertificateManager.shared.getCredential(
+    let clientCredential = ClientCertificateManager.shared.getCredential(
       tag: ClientCertificateManager.loginTag
-    ) {
+    )
+    if let clientCredential {
       if let certInfo = ClientCertificateManager.shared.getCertificateInfo(
         tag: ClientCertificateManager.loginTag
       ), certInfo.isExpired {
         throw AuthenticationError.certificateExpired
       }
       try await ClientCertificateSession.shared.performHandshake(
-        serverURL: activeBackendServerUrl, credential: credential
+        serverURL: activeBackendServerUrl, credential: clientCredential
       )
       os_log("mTLS authentication succeeded.", log: self.log, type: .info)
     }
 
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(), Error>) in
       let sessionConfig = URLSessionConfiguration.default
-      let session = URLSession(configuration: sessionConfig)
+      // Present the client certificate on the reachability probe itself. With per-request mTLS
+      // (no session cookie) every connection must carry the certificate, so a plain session is
+      // rejected with 403 before login can proceed.
+      let sessionDelegate = clientCredential.map { ClientCertificateURLSessionDelegate(credential: $0) }
+      let session = URLSession(
+        configuration: sessionConfig,
+        delegate: sessionDelegate,
+        delegateQueue: nil
+      )
       var request = URLRequest(url: activeBackendServerUrl)
       for (field, value) in credentials.httpHeaders {
         request.setValue(value, forHTTPHeaderField: field)

@@ -2331,7 +2331,7 @@
 				50F40A392C9088B30097FE63 /* XCRemoteSwiftPackageReference "Ifrit" */,
 				505249792D10CBC70005EEB0 /* XCRemoteSwiftPackageReference "swift-collections" */,
 				500E70D02E2FD63900636770 /* XCRemoteSwiftPackageReference "DominantColors" */,
-				50B166A82ED071A100F7A1D6 /* XCRemoteSwiftPackageReference "AudioStreaming" */,
+				50B166A82ED071A100F7A1D6 /* XCLocalSwiftPackageReference "AudioStreaming" */,
 			);
 			productRefGroup = 508385E521C5965B00C4BB32 /* Products */;
 			projectDirPath = "";
@@ -3093,6 +3093,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S6X4T6ZQ98;
 				INFOPLIST_FILE = Amperfy/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -3101,7 +3102,7 @@
 				);
 				MARKETING_VERSION = 2.1.1;
 				"MARKETING_VERSION[sdk=macosx*]" = 2.1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.familie-zimba.amperfy-music";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.krolakj.amperfy-music";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -3132,6 +3133,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S6X4T6ZQ98;
 				INFOPLIST_FILE = Amperfy/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -3140,7 +3142,7 @@
 				);
 				MARKETING_VERSION = 2.1.1;
 				"MARKETING_VERSION[sdk=macosx*]" = 2.1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = "de.familie-zimba.amperfy-music";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.krolakj.amperfy-music";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -3427,13 +3429,9 @@
 				version = 1.5.4;
 			};
 		};
-		50B166A82ED071A100F7A1D6 /* XCRemoteSwiftPackageReference "AudioStreaming" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/dimitris-c/AudioStreaming/";
-			requirement = {
-				kind = exactVersion;
-				version = 1.4.4;
-			};
+		50B166A82ED071A100F7A1D6 /* XCLocalSwiftPackageReference "AudioStreaming" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../AudioStreaming;
 		};
 		50BE5DA3285713B100156FC6 /* XCRemoteSwiftPackageReference "CallbackURLKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -3461,7 +3459,7 @@
 		};
 		502B8A4C2EE0CE40004CA3AD /* AudioStreaming */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 50B166A82ED071A100F7A1D6 /* XCRemoteSwiftPackageReference "AudioStreaming" */;
+			package = 50B166A82ED071A100F7A1D6 /* XCLocalSwiftPackageReference "AudioStreaming" */;
 			productName = AudioStreaming;
 		};
 		5052497A2D10CBC70005EEB0 /* Collections */ = {
@@ -3476,7 +3474,7 @@
 		};
 		50699C812ED859B20039BECD /* AudioStreaming */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 50B166A82ED071A100F7A1D6 /* XCRemoteSwiftPackageReference "AudioStreaming" */;
+			package = 50B166A82ED071A100F7A1D6 /* XCLocalSwiftPackageReference "AudioStreaming" */;
 			productName = AudioStreaming;
 		};
 		507DFE4B2B1E57BE002BBB1D /* MarqueeLabel */ = {
@@ -3521,7 +3519,7 @@
 		};
 		50B166A92ED071EC00F7A1D6 /* AudioStreaming */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 50B166A82ED071A100F7A1D6 /* XCRemoteSwiftPackageReference "AudioStreaming" */;
+			package = 50B166A82ED071A100F7A1D6 /* XCLocalSwiftPackageReference "AudioStreaming" */;
 			productName = AudioStreaming;
 		};
 		50BE5DA6285714A200156FC6 /* CallbackURLKit */ = {

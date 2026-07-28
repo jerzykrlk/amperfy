@@ -174,10 +174,15 @@ struct CertificateDocumentPicker: UIViewControllerRepresentable {
   var dismiss
 
   func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-    let types: [UTType] = [
+    var types: [UTType] = [
       UTType(filenameExtension: "p12")!,
       UTType(filenameExtension: "pfx")!,
     ]
+    // Custom type for .p12 files renamed to .x-p12 so iOS doesn't intercept them as
+    // installable profiles (useful for getting a certificate into the Simulator).
+    if let renamedP12 = UTType("org.amperfy.x-p12") {
+      types.append(renamedP12)
+    }
     let picker = UIDocumentPickerViewController(forOpeningContentTypes: types)
     picker.allowsMultipleSelection = false
     picker.delegate = context.coordinator

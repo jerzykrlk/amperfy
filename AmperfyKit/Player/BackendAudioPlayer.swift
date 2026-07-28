@@ -560,6 +560,7 @@ class BackendAudioPlayer: NSObject {
           throw BackendError.invalidUrl
         }
         playType = .stream
+        ClientCertificateManager.shared.activeStreamingCertificateAccountIdent = nil
         return streamUrl
       } else {
         if queueType == .play {
@@ -579,6 +580,14 @@ class BackendAudioPlayer: NSObject {
         }
         let backendApi = getBackendApiCB(accountInfo)
         httpHeaders = backendApi.httpHeaders
+        ClientCertificateManager.shared.activeStreamingCertificateAccountIdent = accountInfo.ident
+        os_log(
+          .default,
+          "Streaming mTLS certificate for account %{public}@: %{public}@",
+          accountInfo.ident,
+          ClientCertificateManager.shared
+            .credentialForAccountOrLogin(accountIdent: accountInfo.ident) != nil ? "found" : "MISSING"
+        )
         return try await backendApi.generateUrl(
           forStreamingPlayable: playable.info,
           maxBitrate: streamingMaxBitrate,
