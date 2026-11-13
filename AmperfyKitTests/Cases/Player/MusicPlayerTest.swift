@@ -3117,7 +3117,7 @@ class MusicPlayerTest: XCTestCase {
   @MainActor
   func testAudioStartError_WhilePlaying_RetriesAfterDelay() async throws {
     backendPlayer.triggerReinsertPlayableCB = testMusicPlayer.play
-    backendPlayer.audioStartRetryDelays = [0.3]
+    backendPlayer.audioStartRetryDelays = [.milliseconds(300)]
     await playCachedAndWaitForPlayerStart(songCached)
     let playCount = mockAudioStreamingPlayer.playCallCount
 
@@ -3135,7 +3135,9 @@ class MusicPlayerTest: XCTestCase {
   @MainActor
   func testAudioStartError_FailingRetry_IsRetriedAgain() async throws {
     backendPlayer.triggerReinsertPlayableCB = testMusicPlayer.play
-    backendPlayer.audioStartRetryDelays = [0.1, 0.1, 0.1]
+    backendPlayer.audioStartRetryDelays = [
+      .milliseconds(100), .milliseconds(100), .milliseconds(100),
+    ]
     await playCachedAndWaitForPlayerStart(songCached)
     let playCount = mockAudioStreamingPlayer.playCallCount
 
@@ -3152,7 +3154,9 @@ class MusicPlayerTest: XCTestCase {
   @MainActor
   func testAudioStartError_KeepsFailing_GivesUpAfterLastDelay() async throws {
     backendPlayer.triggerReinsertPlayableCB = testMusicPlayer.play
-    backendPlayer.audioStartRetryDelays = [0.05, 0.05, 0.05]
+    backendPlayer.audioStartRetryDelays = [
+      .milliseconds(50), .milliseconds(50), .milliseconds(50),
+    ]
     await playCachedAndWaitForPlayerStart(songCached)
     let playCount = mockAudioStreamingPlayer.playCallCount
 
@@ -3167,7 +3171,7 @@ class MusicPlayerTest: XCTestCase {
   @MainActor
   func testAudioStartError_UserPauses_RetryIsCancelled() async throws {
     backendPlayer.triggerReinsertPlayableCB = testMusicPlayer.play
-    backendPlayer.audioStartRetryDelays = [0.3]
+    backendPlayer.audioStartRetryDelays = [.milliseconds(300)]
     await playCachedAndWaitForPlayerStart(songCached)
     let playCount = mockAudioStreamingPlayer.playCallCount
 
